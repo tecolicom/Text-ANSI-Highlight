@@ -54,7 +54,8 @@ like filter($md), qr/\A```perl\n/, 'the default highlighter';
 ok !eval { filter($md, '-w', 'nosuchhighlighter'); 1 }, 'unknown highlighter dies';
 ok !eval { filter($md, '--nosuchoption'); 1 }, 'unknown option dies';
 
-# As the function of the tee module of greple
+# As the function of the tee module of greple, with a highlighter which
+# is installed: the default one may not be
 SKIP: {
     my $greple = (grep { -x "$_/greple" } File::Spec->path)[0];
     skip 'greple or its tee module is not installed', 4
@@ -67,7 +68,7 @@ SKIP: {
     print $fh $doc;
     close $fh;
     my $lib = File::Spec->rel2abs('lib');
-    my $out = qx{PERL5LIB="$lib:\$PERL5LIB" greple -Mtee '&Text::ANSI::Highlight::filter' -- --all --cm N -E '^ {0,3}(?<f>(?<c>[`~])\\g{c}{2,}).*\\n(?s:.*?)^ {0,3}\\g{f}\\g{c}*\\h*\$' "$dir/a.md" 2>&1};
+    my $out = qx{PERL5LIB="$lib:\$PERL5LIB" greple -Mtee '&Text::ANSI::Highlight::filter' -w $highlighter[0] -- --all --cm N -E '^ {0,3}(?<f>(?<c>[`~])\\g{c}{2,}).*\\n(?s:.*?)^ {0,3}\\g{f}\\g{c}*\\h*\$' "$dir/a.md" 2>&1};
     utf8::decode($out);
     is $text->($out), $doc, 'greple -Mtee: the text is the same';
     like $out, qr/^\e\[[\d;]+mmy\e/m, 'greple -Mtee: the first block is colored';
