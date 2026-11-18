@@ -2,5 +2,9 @@ Revision history for Perl extension Text-ANSI-Highlight
 
 {{$NEXT}}
 
-    - original version
+0.01 2026-11-18T03:43:37Z
+
+    - original version: Text::ANSI::Highlight, with the highlighters
+      pandoc, sourcehighlight (gnu) and skylighting (sky), and the
+      ansihighlight command
 
