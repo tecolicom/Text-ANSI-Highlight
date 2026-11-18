@@ -1,4 +1,4 @@
-
+[![Actions Status](https://github.com/tecolicom/Text-ANSI-Highlight/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/tecolicom/Text-ANSI-Highlight/actions?workflow=test) [![MetaCPAN Release](https://badge.fury.io/pl/Text-ANSI-Highlight.svg)](https://metacpan.org/release/Text-ANSI-Highlight)
 # NAME
 
 Text::ANSI::Highlight - syntax highlight for the terminal, by a highlighter of your choice
