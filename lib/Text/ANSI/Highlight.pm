@@ -1,6 +1,6 @@
 package Text::ANSI::Highlight;
 
-our $VERSION = "0.02";
+our $VERSION = "0.03";
 
 use v5.16;
 use warnings;
@@ -464,7 +464,7 @@ Text::ANSI::Highlight - syntax highlight for the terminal, by a highlighter of y
 
 =head1 VERSION
 
-Version 0.02
+Version 0.03
 
 =head1 DESCRIPTION
 
