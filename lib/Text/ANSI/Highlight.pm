@@ -142,22 +142,55 @@ sub language {
 sub highlight {
     my $obj = shift;
     my @code = @_;
-    my @ret = (undef) x @code;
     my $chars = grep { utf8::is_utf8($_->[1]) } @code;
     # All go to the highlighter in one call: the texts, and the pieces
     # of those which are Markdown
-    my(@job, %markdown);
+    my(@job, @build);
     for my $i (0 .. $#code) {
-        my($name, $text) = @{$code[$i]};
-        if (lc($name // '') =~ /\A(?:markdown|md|mkd)\z/) {
-            $markdown{$i} = $obj->_markdown_plan($text, \@job, $chars);
-        } elsif (defined(my $lang = $obj->language($name))) {
-            push @job, { lang => $lang, text => $text, slot => \$ret[$i] };
-        }
+        my($info, $text) = @{$code[$i]};
+        $build[$i] = $obj->_code_plan($info, $text, \@job, $chars);
     }
     $obj->_run(\@job, $chars);
-    $ret[$_] = $markdown{$_}->() for keys %markdown;
-    @ret;
+    map { $_->() } @build;
+}
+
+# The parts of the text of a block, by the line of its fence: a list
+# of [ language, text, label ].  It is one part with the name of the
+# fence for the language, when there is no module for a block of that
+# name.  The label is what the module calls the part, or undef.
+sub parts {
+    my($class, $info, $text) = @_;
+    my $name = ($info // '') =~ /^\h*(?:\{\h*\.)?([\w+#.-]+)/ ? $1 : '';
+    if (my $parts = _block($name)) {
+        my @part = $parts->($info, $text);
+        return @part if join('', map { $_->[1] } @part) eq $text;
+    }
+    [ $name, $text ];
+}
+
+# Add the jobs for a text to the list, by the line of its fence, the
+# name of a language or more, and return a function which gives the
+# text in colors when the jobs are done, or undef.
+#
+# The name is the first word, or the first class in braces as in
+# ```{.perl .numberLines}.  Markdown is divided into its pieces.  A
+# block which has a module for its name is divided into the parts the
+# module tells, each of its language.
+sub _code_plan {
+    my($obj, $info, $text, $job, $chars) = @_;
+    my $name = ($info // '') =~ /^\h*(?:\{\h*\.)?([\w+#.-]+)/ ? $1 : '';
+    if (lc($name) =~ /\A(?:markdown|md|mkd)\z/) {
+        return $obj->_markdown_plan($text, $job, $chars);
+    }
+    my @part = parts(undef, $info, $text);
+    my @text = map { $_->[1] } @part;
+    my @mine;
+    for my $i (keys @part) {
+        my $lang = $obj->language($part[$i][0]) // next;
+        push @$job, { lang => $lang, text => $text[$i], slot => \$text[$i] };
+        push @mine, $job->[-1];
+    }
+    sub { (grep { $_->{ok} } @mine) ? join('', @text) : undef };
 }
 
 # Give the texts of the jobs to the highlighter in one call, and put
@@ -243,6 +276,22 @@ sub markdown {
     $build->();
 }
 
+# The function which gives the parts of a block of that name, when
+# there is a module for it: Text::ANSI::Highlight::Block::NAME, with a
+# function parts.  It takes the line of the fence after the marks, and
+# the text of the block, and returns a list of [ language, text ],
+# whose texts are that of the block when they are put together.  The
+# language is undef for a part which has none.
+my %BLOCK;
+sub _block {
+    my $name = shift;
+    $name =~ /\A\w+\z/ or return undef;
+    $BLOCK{$name} //= do {
+        my $module = __PACKAGE__ . "::Block::$name";
+        (eval "require $module; 1" && $module->can('parts')) || 0;
+    };
+}
+
 # Divide a Markdown text into pieces, add the jobs for them to the
 # list, and return a function which puts the text together again when
 # the jobs are done: the text with colors, or undef when nothing of it
@@ -283,14 +332,7 @@ sub _markdown_plan {
             substr($text, $to, $end - $to);
         $pos = $end;
         my $code = \$piece[-2];
-        # the name, or the first class in braces: ```{.perl .numberLines}
-        my $name = $info =~ /^\h*(?:\{\h*\.)?([\w+#.-]+)/ ? $1 : '';
-        if (lc($name) =~ /\A(?:markdown|md|mkd)\z/) {
-            # Markdown in a fence is a Markdown text of its own
-            push @nested, [ $code, $obj->_markdown_plan($$code, $job, $chars) ];
-        } elsif (defined(my $lang = $obj->language($name))) {
-            $add->($lang => $code);
-        }
+        push @nested, [ $code, $obj->_code_plan($info, $$code, $job, $chars) ];
     }
     $prose->(substr $text, $pos);
 
@@ -552,6 +594,30 @@ colors, as many as given; and C<markdown()> tells whether the
 highlighter knows Markdown.  The style is in the variable C<$STYLE> of
 its package while they are called.  The rest is done here.
 
+=head1 BLOCK MODULES
+
+A code block can have parts in more than one language.  A block of
+L<pandoc-embedz|https://github.com/tecolicom/pandoc-embedz>
+(C<```embedz>, or C<```{.embedz data=file.csv}>) has a configuration
+in YAML, a template of Jinja2 and data, with lines of C<---> between
+them.
+
+A block of the name I<NAME> is divided into its parts when there is a
+module C<Text::ANSI::Highlight::Block::I<NAME>>, and each part is
+colored by its language.  The module has one function:
+C<parts(I<info>, I<text>)> takes the line of the fence after the
+marks and the text of the block, and returns a list of
+C<[ I<language>, I<text>, I<label> ]>.  The texts make the text of the
+block when they are put together in that order; the block is one part
+when they do not.  The language is C<undef> for a part which has none,
+like the lines of C<--->.  The label, which can be left out, is the
+name of the part (C<config>, C<template> and C<data> in a block of
+embedz), for a program which shows the parts in different ways.
+
+L<Text::ANSI::Highlight::Block::embedz> comes with this module.  A
+module for a block of your own is found when it is in a directory of
+C<@INC>.
+
 =head1 METHODS
 
 =over 4
@@ -592,6 +658,11 @@ a file (C<pm>, C<yml>), or another name that people use (C<shell>,
 C<c++>).  A text of the language C<markdown> is colored as by the
 C<markdown> method.
 
+The line of a fence after the marks can be given for the language.
+Its first word is the name, or the first class in braces as pandoc
+takes it (C<{.perl .numberLines}>), and a block which has a module
+(see L</BLOCK MODULES>) is colored by its parts.
+
 Texts of characters give texts of characters, and texts of bytes
 (UTF-8) give bytes.  A text with CR LF keeps them.
 
@@ -603,6 +674,13 @@ by itself: what is not closed in a block, as a string or a comment,
 does not go on to the next.  The text around the code is colored as
 Markdown, when the highlighter knows it.  The lines of the fences are
 left as they are.  Returns C<undef> when nothing is colored.
+
+=item B<parts>(I<info>, I<text>)
+
+A class method.  Returns the parts of the text of a block as a list
+of C<[ I<language>, I<text>, I<label> ]>, by the line of its fence:
+those of a block module (see L</BLOCK MODULES>), or one part of the
+name of the fence.  No highlighter is called.
 
 =item B<file>(I<file>, B<language> => I<name>)
 

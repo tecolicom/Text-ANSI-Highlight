@@ -102,6 +102,30 @@ colors, as many as given; and `markdown()` tells whether the
 highlighter knows Markdown.  The style is in the variable `$STYLE` of
 its package while they are called.  The rest is done here.
 
+# BLOCK MODULES
+
+A code block can have parts in more than one language.  A block of
+[pandoc-embedz](https://github.com/tecolicom/pandoc-embedz)
+(```` ```embedz ````, or ```` ```{.embedz data=file.csv} ````) has a configuration
+in YAML, a template of Jinja2 and data, with lines of `---` between
+them.
+
+A block of the name _NAME_ is divided into its parts when there is a
+module `Text::ANSI::Highlight::Block::_NAME_`, and each part is
+colored by its language.  The module has one function:
+`parts(_info_, _text_)` takes the line of the fence after the
+marks and the text of the block, and returns a list of
+`[ _language_, _text_, _label_ ]`.  The texts make the text of the
+block when they are put together in that order; the block is one part
+when they do not.  The language is `undef` for a part which has none,
+like the lines of `---`.  The label, which can be left out, is the
+name of the part (`config`, `template` and `data` in a block of
+embedz), for a program which shows the parts in different ways.
+
+[Text::ANSI::Highlight::Block::embedz](https://metacpan.org/pod/Text%3A%3AANSI%3A%3AHighlight%3A%3ABlock%3A%3Aembedz) comes with this module.  A
+module for a block of your own is found when it is in a directory of
+`@INC`.
+
 # METHODS
 
 - **new**(_name_)
@@ -139,6 +163,11 @@ its package while they are called.  The rest is done here.
     `c++`).  A text of the language `markdown` is colored as by the
     `markdown` method.
 
+    The line of a fence after the marks can be given for the language.
+    Its first word is the name, or the first class in braces as pandoc
+    takes it (`{.perl .numberLines}`), and a block which has a module
+    (see ["BLOCK MODULES"](#block-modules)) is colored by its parts.
+
     Texts of characters give texts of characters, and texts of bytes
     (UTF-8) give bytes.  A text with CR LF keeps them.
 
@@ -150,6 +179,13 @@ its package while they are called.  The rest is done here.
     does not go on to the next.  The text around the code is colored as
     Markdown, when the highlighter knows it.  The lines of the fences are
     left as they are.  Returns `undef` when nothing is colored.
+
+- **parts**(_info_, _text_)
+
+    A class method.  Returns the parts of the text of a block as a list
+    of `[ _language_, _text_, _label_ ]`, by the line of its fence:
+    those of a block module (see ["BLOCK MODULES"](#block-modules)), or one part of the
+    name of the fence.  No highlighter is called.
 
 - **file**(_file_, **language** => _name_)
 
