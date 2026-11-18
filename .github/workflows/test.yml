@@ -1,0 +1,47 @@
+name: test
+on: [push, pull_request]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        perl:
+          [
+            "5.42",
+            "5.40",
+            "5.38",
+            "5.36",
+            "5.34",
+            "5.32",
+            "5.30",
+            "5.28",
+            "5.26",
+            "5.24",
+            "5.22",
+            "5.20",
+            "5.18",
+            "5.16",
+          ]
+    name: Perl ${{ matrix.perl }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Setup perl
+        uses: shogo82148/actions-setup-perl@v1
+        with:
+          perl-version: ${{ matrix.perl }}
+      - name: Install dependencies
+        run: cpanm -nq --metacpan --installdeps --with-develop --with-recommends .
+      # The tests run for each highlighter whose command is there, and
+      # are skipped without any.  The pandoc of the distribution may
+      # have no ansi writer: its tests are then skipped.
+      - name: Install highlighters
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q pandoc skylighting source-highlight
+          pandoc --version | head -1
+          pandoc --list-output-formats | grep -x ansi || echo "pandoc has no ansi writer"
+          skylighting --version
+          source-highlight --version | head -1
+      - name: Run test
+        run: prove -lr t
+
