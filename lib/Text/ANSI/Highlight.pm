@@ -283,7 +283,8 @@ sub _markdown_plan {
             substr($text, $to, $end - $to);
         $pos = $end;
         my $code = \$piece[-2];
-        my $name = $info =~ /^\h*([\w+#.-]+)/ ? $1 : '';
+        # the name, or the first class in braces: ```{.perl .numberLines}
+        my $name = $info =~ /^\h*(?:\{\h*\.)?([\w+#.-]+)/ ? $1 : '';
         if (lc($name) =~ /\A(?:markdown|md|mkd)\z/) {
             # Markdown in a fence is a Markdown text of its own
             push @nested, [ $code, $obj->_markdown_plan($$code, $job, $chars) ];
