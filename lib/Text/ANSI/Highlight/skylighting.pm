@@ -4,10 +4,23 @@ use v5.16;
 use warnings;
 use Text::ANSI::Highlight ();
 
-# skylighting, the highlighter of pandoc, as a command: the 16 colors
-# of the terminal and a style without background.  The language is
-# given after it by -s.
-our @COMMAND = qw(skylighting -f ansi -r -C 16 -S pygments);
+# skylighting, the highlighter of pandoc, as a command, with the 16
+# colors of the terminal.  The style and the language are given after
+# it (-S or -t, and -s).
+our @COMMAND = qw(skylighting -f ansi -r -C 16);
+
+# The style: the name of one of skylighting (pygments, haddock, ...),
+# or a theme file of KDE.  Set by Text::ANSI::Highlight for a call.
+our $STYLE;
+our $DEFAULT_STYLE = 'pygments';
+
+# A style is a file when it has a slash or a dot, or is one
+sub style_is_file { $_[0] =~ m{[/.]} or -f $_[0] }
+
+sub style_option {
+    my $style = $STYLE // $DEFAULT_STYLE;
+    style_is_file($style) ? ('-t', $style) : ('-S', $style);
+}
 
 # The languages of skylighting 0.15 (pandoc --list-highlight-languages,
 # pandoc 3.14).  A language is given to the command only when it is
@@ -56,7 +69,8 @@ sub clean {
 sub highlight {
     map {
         my($lang, $text) = @$_;
-        my $out = Text::ANSI::Highlight::run([ @COMMAND, '-s', $lang ], $text);
+        my $out = Text::ANSI::Highlight::run(
+            [ @COMMAND, style_option(), '-s', $lang ], $text);
         defined $out ? clean($out) : undef;
     } @_;
 }

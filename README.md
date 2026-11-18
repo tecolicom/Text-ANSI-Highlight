@@ -68,19 +68,44 @@ the command of the highlighter is not installed or fails.
     of its own.  The command runs once for each text.
 
 The colors of `pandoc` and `skylighting` are the 16 colors of the
-terminal, without background.
+terminal, without background by default.
+
+# STYLES
+
+The colors are those of a style of the highlighter, which tells the
+color of the keywords, the comments, the strings and so on.  A style
+is given by its name, or by a file.
+
+- **pandoc**, **skylighting**
+
+    The styles are `pygments` (default), `haddock`, `tango`, `kate`,
+    `espresso`, `zenburn`, `breezedark` and `monochrome`
+    (`pandoc --list-highlight-styles`).  `haddock` has fewer colors.
+    Some of them have a background color.  A file is a theme of KDE, in JSON, as
+    `pandoc --print-highlight-style=haddock` prints.
+
+- **sourcehighlight**
+
+    A style is a style file of `source-highlight`, by its name without
+    `.style`: `esc` (default), `esc256`, `default` and others, or a
+    file of your own.
+
+A text is not colored when the highlighter does not have the style.
+
+# HIGHLIGHTER MODULES
 
 A highlighter is a module `Text::ANSI::Highlight::_name_` which has
 three functions: `language(_name_)` returns the name of a language
 as the highlighter calls it, or `undef` when it does not know it;
 `highlight([ _language_, _text_ ], ...)` returns the texts in
 colors, as many as given; and `markdown()` tells whether the
-highlighter knows Markdown.  The rest is done here.
+highlighter knows Markdown.  The style is in the variable `$STYLE` of
+its package while they are called.  The rest is done here.
 
 # METHODS
 
 - **new**(_name_)
-- **new**(**with** => _name_)
+- **new**(**with** => _name_, **style** => _style_)
 
     Make an object which colors with the highlighter of the name, or of
     the short name (`gnu`, `sky`).  The
@@ -89,6 +114,14 @@ highlighter knows Markdown.  The rest is done here.
     Without it, the highlighter is `pandoc`
     (`$Text::ANSI::Highlight::HIGHLIGHTER`).  It dies for a name which is
     not that of a highlighter.
+
+    `style` is the style of the highlighter, which gives the colors: see
+    ["STYLES"](#styles).  It can be written after the name of the highlighter and
+    a colon as well, so that the two go in one word, as the value of an
+    option:
+
+        Text::ANSI::Highlight->new('pandoc', style => 'haddock');
+        Text::ANSI::Highlight->new('pandoc:haddock');
 
 - **highlighter**(_name_)
 
@@ -143,8 +176,8 @@ highlighter knows Markdown.  The rest is done here.
 
     Read the standard input and print it in colors, or as it is when it
     is not colored.  The options are `-w _name_` (`--with`), the
-    highlighter, and `-l _language_` (`--language`), which is
-    `markdown` by default.
+    highlighter, `-s _style_` (`--style`), and `-l _language_`
+    (`--language`), which is `markdown` by default.
 
     It is a function for the `tee` module of **greple**, which gives parts
     of a file to a function and puts back what it prints.  Next command

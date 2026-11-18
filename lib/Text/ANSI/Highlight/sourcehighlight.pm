@@ -4,10 +4,22 @@ use v5.16;
 use warnings;
 use Text::ANSI::Highlight ();
 
-# source-highlight of GNU, with esc.style, the style which comes with
-# it: the colors that less shows by its lesspipe.  The language is
-# given after it by -s.
-our @COMMAND = qw(source-highlight -f esc --style-file=esc.style);
+# source-highlight of GNU.  Its style esc is the colors that less
+# shows by its lesspipe.  The style and the language are given after
+# it (--style-file and -s).
+our @COMMAND = qw(source-highlight -f esc);
+
+# The style: the name of a style file of source-highlight without
+# .style (esc, esc256, default), or a style file.  Set by
+# Text::ANSI::Highlight for a call.
+our $STYLE;
+our $DEFAULT_STYLE = 'esc';
+
+sub style_option {
+    my $style = $STYLE // $DEFAULT_STYLE;
+    $style .= '.style' unless $style =~ m{[/.]} or -f $style;
+    "--style-file=$style";
+}
 
 # The languages, and the extensions of the files, that the command
 # knows (source-highlight --lang-list)
@@ -29,7 +41,7 @@ sub markdown { 0 }
 sub highlight {
     map {
         my($lang, $text) = @$_;
-        Text::ANSI::Highlight::run([ @COMMAND, '-s', $lang ], $text);
+        Text::ANSI::Highlight::run([ @COMMAND, style_option(), '-s', $lang ], $text);
     } @_;
 }
 

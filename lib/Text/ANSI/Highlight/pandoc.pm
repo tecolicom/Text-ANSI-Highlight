@@ -15,6 +15,29 @@ our @COMMAND = qw(pandoc -f markdown -t ansi --wrap=none --preserve-tabs);
 
 sub markdown { 1 }
 
+# The style: the name of one of pandoc (pygments, haddock, ...), or a
+# theme file of KDE.  Set by Text::ANSI::Highlight for a call.  Without
+# it, pandoc uses its default, pygments.
+#
+# The option is --syntax-highlighting in a new pandoc, and
+# --highlight-style in an older one, which a new one still takes with a
+# warning.  The one which worked is used again.
+our $STYLE;
+my @STYLE_OPTION = qw(--syntax-highlighting --highlight-style);
+
+sub run {
+    my $input = shift;
+    defined $STYLE
+        or return Text::ANSI::Highlight::run(\@COMMAND, $input);
+    for my $option (@STYLE_OPTION) {
+        my $out = Text::ANSI::Highlight::run(
+            [ @COMMAND, "$option=$STYLE" ], $input) // next;
+        @STYLE_OPTION = ($option);
+        return $out;
+    }
+    undef;
+}
+
 # The paragraph between the code blocks.  A line of the code never
 # looks like this in what pandoc writes: the code is indented.
 my $SEPARATOR = 'TextANSIHighlightPandocSeparator';
@@ -33,8 +56,7 @@ sub highlight {
         "$fence$lang\n$text" . ($text =~ /\n\z/ ? '' : "\n") . "$fence\n";
     } @code;
     my @none = (undef) x @code;
-    my $out = Text::ANSI::Highlight::run(\@COMMAND, join "\n$SEPARATOR\n\n", @block)
-        // return @none;
+    my $out = run(join "\n$SEPARATOR\n\n", @block) // return @none;
     # the end of a hyperlink, which pandoc puts at the end
     $out =~ s/\e\]8;;\e\\//g;
     my @out = split /^\Q$SEPARATOR\E\n/m, $out, -1;

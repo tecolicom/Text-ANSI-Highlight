@@ -8,6 +8,7 @@ use Text::ANSI::Highlight;
 my %opt;
 GetOptions(\%opt,
     'with|w=s',
+    'style|s=s',
     'language|l=s',
     'list-highlighters',
     'help|h',
@@ -26,6 +27,8 @@ Usage: ansihighlight [ options ] [ file ... ]
 
     -w NAME  --with=NAME         highlighter: pandoc (default),
                                  sourcehighlight (gnu), skylighting (sky)
+    -s NAME  --style=NAME        style of the highlighter, or a file
+                                 (-w pandoc:haddock, -w gnu:esc256)
     -l LANG  --language=LANG     language of the text; told from the
                                  name of the file by default
              --list-highlighters highlighters, and whether the command
@@ -48,7 +51,9 @@ if ($opt{'list-highlighters'}) {
     exit;
 }
 
-my $hl = Text::ANSI::Highlight->new(defined $opt{with} ? $opt{with} : ());
+my $hl = Text::ANSI::Highlight->new(
+    with => $opt{with} // '',
+    defined $opt{style} ? (style => $opt{style}) : ());
 my %lang = defined $opt{language} ? (language => $opt{language}) : ();
 
 my $status = 0;
@@ -86,6 +91,7 @@ ansihighlight - syntax highlight for the terminal
     ansihighlight lib/Foo.pm
     ansihighlight README.md
     ansihighlight -w gnu script.sh
+    ansihighlight -w pandoc:haddock lib/Foo.pm
     command | ansihighlight -l json
 
 =head1 DESCRIPTION
@@ -111,6 +117,13 @@ C<->.  Its language is given by C<-l>, or told from its first line.
 
 The highlighter: C<pandoc> (default), C<sourcehighlight> (C<gnu>) or
 C<skylighting> (C<sky>).  See L<Text::ANSI::Highlight/HIGHLIGHTERS>.
+
+=item B<-s> I<style>, B<--style>=I<style>
+
+The style of the highlighter, which gives the colors: its name, or a
+file.  It can be written with the highlighter as well, after a colon:
+C<-w pandoc:haddock>, C<-w gnu:esc256>.  See
+L<Text::ANSI::Highlight/STYLES>.
 
 =item B<-l> I<language>, B<--language>=I<language>
 

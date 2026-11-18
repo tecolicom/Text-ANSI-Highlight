@@ -61,6 +61,7 @@ our %ALIAS = (
 # loaded: a highlighter is a module which has the function highlight.
 sub highlighter {
     my($class, $name) = @_;
+    $name =~ s/:.*//s;
     $name = $SHORT{$name} // $name;
     $name =~ /\A\w+\z/ or return undef;
     my $file = __PACKAGE__ =~ s{::}{/}gr . "/$name.pm";
@@ -79,7 +80,12 @@ sub new {
     my $class = shift;
     unshift @_, 'with' if @_ % 2;
     my %arg = @_;
-    my $name = delete $arg{with} // $HIGHLIGHTER;
+    # with => "name:style" is the highlighter and its style; the style
+    # parameter wins over it
+    my($name, $style) = split /:/, delete $arg{with} // '', 2;
+    $style = delete $arg{style} if exists $arg{style};
+    undef $style if defined $style and $style eq '';
+    $name = $HIGHLIGHTER if not defined $name or $name eq '';
     $name = $SHORT{$name} // $name;
     croak join(', ', sort keys %arg) . ': unknown parameter' if %arg;
     $name =~ /\A\w+\z/ or croak "$name: invalid highlighter";
@@ -89,14 +95,19 @@ sub new {
         croak $@ unless $@ =~ /^Can't locate \Q$file\E /;
         croak "$name: no such highlighter";
     }
-    bless { name => $name, module => $module }, $class;
+    bless { name => $name, module => $module, style => $style }, $class;
 }
 
-sub name { $_[0]{name} }
+sub name  { $_[0]{name} }
+sub style { $_[0]{style} }
 
-# The functions of the highlighter
+# The functions of the highlighter.  The style is given in the
+# variable $STYLE of its package, for the time of the call: the
+# highlighter makes the option of its command from it.
 sub _call {
     my($obj, $func) = splice @_, 0, 2;
+    no strict 'refs';
+    local ${"$obj->{module}::STYLE"} = $obj->{style};
     $obj->{module}->can($func)->(@_);
 }
 
@@ -366,9 +377,11 @@ sub filter {
     require Getopt::Long;
     my %opt = (language => 'markdown');
     Getopt::Long::GetOptionsFromArray(
-        [ @_ ], \%opt, 'with|w=s', 'language|l=s')
+        [ @_ ], \%opt, 'with|w=s', 'style|s=s', 'language|l=s')
         or croak 'filter: invalid option';
-    my $hl = __PACKAGE__->new(defined $opt{with} ? $opt{with} : ());
+    my $hl = __PACKAGE__->new(
+        with => $opt{with} // '',
+        defined $opt{style} ? (style => $opt{style}) : ());
     my $text = do { local $/; <STDIN> } // '';
     print $hl->text($text, language => $opt{language}) // $text;
 }
@@ -479,14 +492,43 @@ of its own.  The command runs once for each text.
 =back
 
 The colors of C<pandoc> and C<skylighting> are the 16 colors of the
-terminal, without background.
+terminal, without background by default.
+
+=head1 STYLES
+
+The colors are those of a style of the highlighter, which tells the
+color of the keywords, the comments, the strings and so on.  A style
+is given by its name, or by a file.
+
+=over 4
+
+=item B<pandoc>, B<skylighting>
+
+The styles are C<pygments> (default), C<haddock>, C<tango>, C<kate>,
+C<espresso>, C<zenburn>, C<breezedark> and C<monochrome>
+(C<pandoc --list-highlight-styles>).  C<haddock> has fewer colors.
+Some of them have a background color.  A file is a theme of KDE, in JSON, as
+C<pandoc --print-highlight-style=haddock> prints.
+
+=item B<sourcehighlight>
+
+A style is a style file of C<source-highlight>, by its name without
+C<.style>: C<esc> (default), C<esc256>, C<default> and others, or a
+file of your own.
+
+=back
+
+A text is not colored when the highlighter does not have the style.
+
+=head1 HIGHLIGHTER MODULES
 
 A highlighter is a module C<Text::ANSI::Highlight::I<name>> which has
 three functions: C<language(I<name>)> returns the name of a language
 as the highlighter calls it, or C<undef> when it does not know it;
 C<highlight([ I<language>, I<text> ], ...)> returns the texts in
 colors, as many as given; and C<markdown()> tells whether the
-highlighter knows Markdown.  The rest is done here.
+highlighter knows Markdown.  The style is in the variable C<$STYLE> of
+its package while they are called.  The rest is done here.
 
 =head1 METHODS
 
@@ -494,7 +536,7 @@ highlighter knows Markdown.  The rest is done here.
 
 =item B<new>(I<name>)
 
-=item B<new>(B<with> => I<name>)
+=item B<new>(B<with> => I<name>, B<style> => I<style>)
 
 Make an object which colors with the highlighter of the name, or of
 the short name (C<gnu>, C<sky>).  The
@@ -503,6 +545,14 @@ with an odd number of arguments, the first is the highlighter.
 Without it, the highlighter is C<pandoc>
 (C<$Text::ANSI::Highlight::HIGHLIGHTER>).  It dies for a name which is
 not that of a highlighter.
+
+C<style> is the style of the highlighter, which gives the colors: see
+L</STYLES>.  It can be written after the name of the highlighter and
+a colon as well, so that the two go in one word, as the value of an
+option:
+
+    Text::ANSI::Highlight->new('pandoc', style => 'haddock');
+    Text::ANSI::Highlight->new('pandoc:haddock');
 
 =item B<highlighter>(I<name>)
 
@@ -561,8 +611,8 @@ it does not know the language.
 
 Read the standard input and print it in colors, or as it is when it
 is not colored.  The options are C<-w I<name>> (C<--with>), the
-highlighter, and C<-l I<language>> (C<--language>), which is
-C<markdown> by default.
+highlighter, C<-s I<style>> (C<--style>), and C<-l I<language>>
+(C<--language>), which is C<markdown> by default.
 
 It is a function for the C<tee> module of B<greple>, which gives parts
 of a file to a function and puts back what it prints.  Next command
