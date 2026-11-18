@@ -32,12 +32,14 @@ jobs:
       - name: Install dependencies
         run: cpanm -nq --metacpan --installdeps --with-develop --with-recommends .
       # The tests run for each highlighter whose command is there, and
-      # are skipped without any.  The pandoc of the distribution may
-      # have no ansi writer: its tests are then skipped.
+      # are skipped without any.  The packages are cached: apt-get took
+      # minutes in some of the jobs.
       - name: Install highlighters
+        uses: tecolicom/actions-use-apt-tools@v1
+        with:
+          tools: pandoc skylighting source-highlight
+      - name: Show highlighters
         run: |
-          sudo apt-get update -q
-          sudo apt-get install -y -q pandoc skylighting source-highlight
           pandoc --version | head -1
           pandoc --list-output-formats | grep -x ansi || echo "pandoc has no ansi writer"
           skylighting --version
