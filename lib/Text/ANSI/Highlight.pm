@@ -572,6 +572,13 @@ L<ansihighlight>, the command.
 
 L<App::Greple::tee>
 
+L<SyntaxHighlight::Any> is a common interface to highlighters as well.
+
+L<Syntax::Kamelon> and L<Syntax::Highlight::Engine::Kate> color by the
+syntax definitions of Kate in Perl, and L<Syntax::SourceHighlight> by
+the library of GNU Source-highlight, without running a command.
+L<Text::VimColor> colors by Vim.
+
 L<https://pandoc.org/>, L<https://www.gnu.org/software/src-highlite/>,
 L<https://github.com/jgm/skylighting>
 

@@ -170,6 +170,13 @@ no fence.
 
 [App::Greple::tee](https://metacpan.org/pod/App%3A%3AGreple%3A%3Atee)
 
+[SyntaxHighlight::Any](https://metacpan.org/pod/SyntaxHighlight%3A%3AAny) is a common interface to highlighters as well.
+
+[Syntax::Kamelon](https://metacpan.org/pod/Syntax%3A%3AKamelon) and [Syntax::Highlight::Engine::Kate](https://metacpan.org/pod/Syntax%3A%3AHighlight%3A%3AEngine%3A%3AKate) color by the
+syntax definitions of Kate in Perl, and [Syntax::SourceHighlight](https://metacpan.org/pod/Syntax%3A%3ASourceHighlight) by
+the library of GNU Source-highlight, without running a command.
+[Text::VimColor](https://metacpan.org/pod/Text%3A%3AVimColor) colors by Vim.
+
 [https://pandoc.org/](https://pandoc.org/), [https://www.gnu.org/software/src-highlite/](https://www.gnu.org/software/src-highlite/),
 [https://github.com/jgm/skylighting](https://github.com/jgm/skylighting)
 
