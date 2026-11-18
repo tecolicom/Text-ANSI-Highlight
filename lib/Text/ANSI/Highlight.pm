@@ -25,7 +25,7 @@ our $MAX_SIZE = 256 * 1024;
 
 # Other names of the languages: extensions of files, and the names
 # people write after a fence.  The highlighter is asked for the name
-# as it is first, and then for the name here.
+# here first, and then for the name as it is.
 our %ALIAS = (
     pl => 'perl', pm => 'perl', t => 'perl', psgi => 'perl',
     sh => 'bash', shell => 'bash', ksh => 'bash', dash => 'bash',
@@ -55,6 +55,22 @@ our %ALIAS = (
     conf => 'ini', cfg => 'ini',
     tclsh => 'tcl',
 );
+
+# The name of a highlighter for a name or a short name, or undef when
+# there is no such highlighter.  The module is looked for, and not
+# loaded: a highlighter is a module which has the function highlight.
+sub highlighter {
+    my($class, $name) = @_;
+    $name = $SHORT{$name} // $name;
+    $name =~ /\A\w+\z/ or return undef;
+    my $file = __PACKAGE__ =~ s{::}{/}gr . "/$name.pm";
+    for my $dir (grep { !ref } @INC) {
+        open my $fh, '<', "$dir/$file" or next;
+        local $/;
+        return <$fh> =~ /^sub highlight\b/m ? $name : undef;
+    }
+    undef;
+}
 
 # The parameter is "with", the name of the highlighter.  With an odd
 # number of arguments, the first is taken for it: new('pandoc') is
@@ -91,7 +107,9 @@ sub language {
     my($obj, $name) = @_;
     $name = lc($name // '');
     return undef if $name eq '';
-    for ($name, $ALIAS{$name} // ()) {
+    # the name here first: a highlighter can take the same name for
+    # another language, as source-highlight takes pl for Prolog
+    for ($ALIAS{$name} // (), $name) {
         next if $_ eq 'markdown';
         my $lang = $obj->_call(language => $_);
         return $lang if defined $lang;
@@ -486,6 +504,12 @@ Without it, the highlighter is C<pandoc>
 (C<$Text::ANSI::Highlight::HIGHLIGHTER>).  It dies for a name which is
 not that of a highlighter.
 
+=item B<highlighter>(I<name>)
+
+A class method.  Return the name of the highlighter for a name or a
+short name (C<sourcehighlight> for C<gnu>), or C<undef> when there is
+no such highlighter.  Nothing is loaded.
+
 =item B<highlight>([ I<language>, I<text> ], ...)
 
 Color texts, and return as many: each is the text in colors, or
@@ -569,6 +593,9 @@ no fence.
 =head1 SEE ALSO
 
 L<ansihighlight>, the command.
+
+L<Text::ANSI::Highlight::IO> makes a program which reads files by
+C<E<lt>E<gt>> read them in colors, as it is.
 
 L<App::Greple::tee>
 

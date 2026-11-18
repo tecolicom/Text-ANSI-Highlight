@@ -90,6 +90,12 @@ highlighter knows Markdown.  The rest is done here.
     (`$Text::ANSI::Highlight::HIGHLIGHTER`).  It dies for a name which is
     not that of a highlighter.
 
+- **highlighter**(_name_)
+
+    A class method.  Return the name of the highlighter for a name or a
+    short name (`sourcehighlight` for `gnu`), or `undef` when there is
+    no such highlighter.  Nothing is loaded.
+
 - **highlight**(\[ _language_, _text_ \], ...)
 
     Color texts, and return as many: each is the text in colors, or
@@ -167,6 +173,9 @@ no fence.
 # SEE ALSO
 
 [ansihighlight](https://metacpan.org/pod/ansihighlight), the command.
+
+[Text::ANSI::Highlight::IO](https://metacpan.org/pod/Text%3A%3AANSI%3A%3AHighlight%3A%3AIO) makes a program which reads files by
+`<>` read them in colors, as it is.
 
 [App::Greple::tee](https://metacpan.org/pod/App%3A%3AGreple%3A%3Atee)
 

@@ -98,6 +98,11 @@ for my $name (@highlighter) {
 
     subtest "$name: language" => sub {
         ok defined $hl->language($_), $_ for qw(perl Perl pm pl sh py js c h);
+        # the other names here win over those of the highlighter:
+        # source-highlight takes pl for Prolog
+        is $hl->language('pl'), $hl->language('perl'), 'pl is Perl';
+        is $hl->language('pm'), $hl->language('perl'), 'pm is Perl';
+        is $hl->language('sh'), $hl->language('bash'), 'sh is bash';
         is $hl->language('nosuchlanguage'), undef, 'not known';
         is $hl->language(''), undef, 'empty';
         is $hl->language(undef), undef, 'undef';
@@ -161,6 +166,15 @@ subtest 'new' => sub {
     is(Text::ANSI::Highlight->new->name, $default, 'the default');
     is(Text::ANSI::Highlight->new('sourcehighlight')->name, 'sourcehighlight', 'by the first argument');
     is(Text::ANSI::Highlight->new(with => 'sourcehighlight')->name, 'sourcehighlight', 'by with');
+
+    # the name of a highlighter, without loading it
+    is(Text::ANSI::Highlight->highlighter('pandoc'), 'pandoc', 'highlighter: a name');
+    is(Text::ANSI::Highlight->highlighter('gnu'), 'sourcehighlight', 'highlighter: a short name');
+    is(Text::ANSI::Highlight->highlighter('sky'), 'skylighting', 'highlighter: another');
+    is(Text::ANSI::Highlight->highlighter('nosuchhighlighter'), undef, 'highlighter: not one');
+    is(Text::ANSI::Highlight->highlighter('IO'), undef, 'highlighter: a module which is not one');
+    is(Text::ANSI::Highlight->highlighter('a b'), undef, 'highlighter: not a word');
+    is(Text::ANSI::Highlight->highlighter(''), undef, 'highlighter: empty');
 
     # short names
     is(Text::ANSI::Highlight->new('gnu')->name, 'sourcehighlight', 'gnu is sourcehighlight');
