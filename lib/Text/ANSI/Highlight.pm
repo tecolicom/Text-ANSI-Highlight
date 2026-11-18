@@ -144,24 +144,42 @@ sub highlight {
     my @code = @_;
     my @ret = (undef) x @code;
     my $chars = grep { utf8::is_utf8($_->[1]) } @code;
-    my(@index, @pair, @crlf);
+    # All go to the highlighter in one call: the texts, and the pieces
+    # of those which are Markdown
+    my(@job, %markdown);
     for my $i (0 .. $#code) {
         my($name, $text) = @{$code[$i]};
         if (lc($name // '') =~ /\A(?:markdown|md|mkd)\z/) {
-            $ret[$i] = $obj->markdown($text);
-            next;
+            $markdown{$i} = $obj->_markdown_plan($text, \@job, $chars);
+        } elsif (defined(my $lang = $obj->language($name))) {
+            push @job, { lang => $lang, text => $text, slot => \$ret[$i] };
         }
-        my $lang = $obj->language($name) // next;
+    }
+    $obj->_run(\@job, $chars);
+    $ret[$_] = $markdown{$_}->() for keys %markdown;
+    @ret;
+}
+
+# Give the texts of the jobs to the highlighter in one call, and put
+# what comes back in the slot of each job, when it is the text in
+# colors.  A job is { lang, text, slot }, and gets ok when it is done.
+sub _run {
+    my($obj, $job, $chars) = @_;
+    my(@todo, @pair, @crlf);
+    for my $j (@$job) {
+        my $text = $j->{text};
         my $crlf = _prepare(\$text, $chars) // next;
-        push @index, $i;
-        push @pair, [ $lang, $text ];
+        push @todo, $j;
+        push @pair, [ $j->{lang}, $text ];
         push @crlf, $crlf;
     }
-    my @out = @pair ? $obj->_call(highlight => @pair) : ();
-    for my $j (0 .. $#pair) {
-        $ret[$index[$j]] = _accept($out[$j], $pair[$j][1], $crlf[$j], $chars);
+    @pair or return;
+    my @out = $obj->_call(highlight => @pair);
+    for my $i (0 .. $#todo) {
+        my $color = _accept($out[$i], $pair[$i][1], $crlf[$i], $chars) // next;
+        ${ $todo[$i]{slot} } = $color;
+        $todo[$i]{ok} = 1;
     }
-    @ret;
 }
 
 # Make a text ready for the highlighter: bytes, and LF for CR LF.
@@ -219,21 +237,41 @@ my $FENCE = qr{^( {0,3})((`|~)\3{2,})(.*)\n((?s:.*?))^( {0,3})(\2\3*)(\h*)$}m;
 # one which is not closed, is left as it is.
 sub markdown {
     my($obj, $text) = @_;
-    my $chars = utf8::is_utf8($text);
+    my @job;
+    my $build = $obj->_markdown_plan($text, \@job, utf8::is_utf8($text));
+    $obj->_run(\@job, utf8::is_utf8($text));
+    $build->();
+}
+
+# Divide a Markdown text into pieces, add the jobs for them to the
+# list, and return a function which puts the text together again when
+# the jobs are done: the text with colors, or undef when nothing of it
+# is colored.  Markdown in a fence is divided in the same way, and its
+# pieces go to the same list.
+sub _markdown_plan {
+    my($obj, $text, $job, $chars) = @_;
     # the fences are found in a text of LF; CR comes back at the end,
     # when every line has it
     my $crlf = $text =~ /\r\n/ && $text !~ /(?<!\r)\n/;
     $text =~ s/\r\n/\n/g if $crlf;
-    my(@piece, @pair, @kind);
+    my $markdown = $obj->_call('markdown');
+    # the pieces: the text, the opening fence, the code, the closing
+    # fence, and so on, to the text at the end
+    my(@piece, @mine, @nested);
+    my $add = sub {
+        my($lang, $slot) = @_;
+        push @$job, my $j = { lang => $lang, text => $$slot, slot => $slot };
+        push @mine, $j;
+    };
     my $prose = sub {
-        my $piece = shift;
-        push @piece, $piece;
-        # a fence, or front matter which is not closed at the top
-        my $skip = $piece =~ /^ {0,3}(?:`{3,}|~{3,})/m
-            || (@piece == 1 && $piece =~ /\A---\h*\n/
-                && $piece !~ /\A.*\n(?s:.*?)^(?:---|\.\.\.)\h*$/m);
-        push @kind, [ $skip ? 'skip' : 'text' ];
-        push @pair, $piece;
+        push @piece, shift;
+        return unless $markdown;
+        # not a piece which has a fence, or front matter which is not
+        # closed at the top
+        return if $piece[-1] =~ /^ {0,3}(?:`{3,}|~{3,})/m;
+        return if @piece == 1 and $piece[-1] =~ /\A---\h*\n/
+            and $piece[-1] !~ /\A.*\n(?s:.*?)^(?:---|\.\.\.)\h*$/m;
+        $add->(markdown => \$piece[-1]);
     };
     my $pos = 0;
     while ($text =~ /$FENCE/g) {
@@ -243,48 +281,31 @@ sub markdown {
             substr($text, $start, $from - $start),
             substr($text, $from, $to - $from),
             substr($text, $to, $end - $to);
-        push @kind, [ code => $info =~ /^\h*([\w+#.-]+)/ ? $1 : '' ];
-        push @pair, $piece[-2];
         $pos = $end;
+        my $code = \$piece[-2];
+        my $name = $info =~ /^\h*([\w+#.-]+)/ ? $1 : '';
+        if (lc($name) =~ /\A(?:markdown|md|mkd)\z/) {
+            # Markdown in a fence is a Markdown text of its own
+            push @nested, [ $code, $obj->_markdown_plan($$code, $job, $chars) ];
+        } elsif (defined(my $lang = $obj->language($name))) {
+            $add->($lang => $code);
+        }
     }
     $prose->(substr $text, $pos);
 
-    # the pieces of Markdown go to the highlighter with the code, all
-    # at once; the code of a language goes through highlight
-    my $markdown = $obj->_call('markdown');
-    my(@code, @which);
-    my $colored = 0;
-    for my $i (0 .. $#pair) {
-        my($kind, $name) = @{$kind[$i]};
-        my $lang;
-        if ($kind eq 'text') {
-            $lang = 'markdown' if $markdown;
-        } elsif ($kind eq 'code') {
-            # Markdown in a fence is a Markdown text of its own
-            if (lc($name) =~ /\A(?:markdown|md|mkd)\z/) {
-                my $color = $obj->markdown($pair[$i]) // next;
-                $piece[$i * 2] = $color;
-                $colored++;
-                next;
-            }
-            $lang = $obj->language($name);
+    sub {
+        my $colored = grep { $_->{ok} } @mine;
+        for (@nested) {
+            my($code, $build) = @$_;
+            my $color = $build->() // next;
+            $$code = $color;
+            $colored++;
         }
-        defined $lang or next;
-        my $piece = $pair[$i];
-        defined _prepare(\$piece, $chars) or next;
-        push @code, [ $lang, $piece ];
-        push @which, $i;
-    }
-    my @out = @code ? $obj->_call(highlight => @code) : ();
-    for my $j (0 .. $#code) {
-        my $color = _accept($out[$j], $code[$j][1], 0, $chars) // next;
-        $piece[ $which[$j] * 2 ] = $color;
-        $colored++;
-    }
-    $colored or return undef;
-    my $result = join '', @piece;
-    $result =~ s/((?:\e\[[\d;]*m)*)\n/$1\r\n/g if $crlf;
-    $result;
+        $colored or return undef;
+        my $result = join '', @piece;
+        $result =~ s/((?:\e\[[\d;]*m)*)\n/$1\r\n/g if $crlf;
+        $result;
+    };
 }
 
 # The names of interpreters which are not the names of a language

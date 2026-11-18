@@ -116,6 +116,32 @@ for my $name (@highlighter) {
         is $text->($c), $crlf, 'CRLF: the text is the same';
     };
 
+    # Markdown in fences of Markdown, and blocks given to highlight,
+    # go to the highlighter with the rest: it is called once
+    subtest "$name: the highlighter is called once" => sub {
+        my $calls = 0;
+        no strict 'refs';
+        no warnings 'redefine';
+        my $func = "Text::ANSI::Highlight::${name}::highlight";
+        my $orig = \&$func;
+        local *$func = sub { $calls++; goto &$orig };
+        my $inner = "# Inner\n\n```c\nint x; /* c */\n```\n";
+        my $doc = "# Top\n\n````markdown\n$inner````\n\ntext\n\n"
+            . "````md\n$inner````\n\n```perl\nmy \$x; # c\n```\n";
+        my $out = $hl->markdown($doc);
+        is $text->($out), $doc, 'markdown: the text is the same';
+        is scalar(() = $out =~ /^\e\[[\d;]+mint\e/mg), 2, 'markdown: the code in both';
+        is $calls, 1, 'markdown: one call';
+
+        $calls = 0;
+        my @out = $hl->highlight([ markdown => $inner ], [ c => "int y; /* c */\n" ],
+                                 [ md => $inner ], [ perl => "my \$x; # c\n" ]);
+        is scalar(grep { defined } @out), 4, 'highlight: all colored';
+        is $text->($out[0]), $inner, 'highlight: the text of Markdown is the same';
+        like $out[2], qr/^\e\[[\d;]+mint\e/m, 'highlight: the code in Markdown';
+        is $calls, 1, 'highlight: one call';
+    };
+
     subtest "$name: Markdown by highlight, file and text" => sub {
         my($out) = $hl->highlight([ markdown => $md ]);
         is $text->($out), $md, 'highlight with the language markdown';
