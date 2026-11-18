@@ -461,7 +461,7 @@ L<pandoc|https://pandoc.org/>, by its C<ansi> writer.  It is the
 default.  All the texts of a call are given to C<pandoc> in one run,
 each in a code block of its own in a Markdown text.  C<pandoc> has
 the library of C<skylighting> in it, and the C<skylighting> command
-is not used.  The C<ansi> writer is not in an old C<pandoc>.
+is not used.  The C<ansi> writer came with C<pandoc> 3.4.
 
 =item B<sourcehighlight>, B<gnu>
 

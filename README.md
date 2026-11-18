@@ -52,7 +52,7 @@ the command of the highlighter is not installed or fails.
     default.  All the texts of a call are given to `pandoc` in one run,
     each in a code block of its own in a Markdown text.  `pandoc` has
     the library of `skylighting` in it, and the `skylighting` command
-    is not used.  The `ansi` writer is not in an old `pandoc`.
+    is not used.  The `ansi` writer came with `pandoc` 3.4.
 
 - **sourcehighlight**, **gnu**
 
