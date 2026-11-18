@@ -28,6 +28,7 @@ our $MAX_SIZE = 256 * 1024;
 # here first, and then for the name as it is.
 our %ALIAS = (
     pl => 'perl', pm => 'perl', t => 'perl', psgi => 'perl',
+    cpanfile => 'perl',
     sh => 'bash', shell => 'bash', ksh => 'bash', dash => 'bash',
     bashrc => 'bash', profile => 'bash',
     py => 'python', python3 => 'python',
