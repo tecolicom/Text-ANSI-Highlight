@@ -33,17 +33,26 @@ jobs:
         run: cpanm -nq --metacpan --installdeps --with-develop --with-recommends .
       # The tests run for each highlighter whose command is there, and
       # are skipped without any.  The packages are cached: apt-get took
-      # minutes in some of the jobs.
+      # minutes in some of the jobs.  The method is timestamp, which
+      # keeps all the files that are installed: with the default one,
+      # the files of the packages they depend on were not kept, and
+      # the commands did not run (libsource-highlight, pandoc-data).
       - name: Install highlighters
         uses: tecolicom/actions-use-apt-tools@v1
         with:
           tools: pandoc skylighting source-highlight
+          method: timestamp
+          key: timestamp
+      # each of them has to color a text: a command which is there and
+      # does not run would make the tests fail
       - name: Show highlighters
         run: |
           pandoc --version | head -1
-          pandoc --list-output-formats | grep -x ansi || echo "pandoc has no ansi writer"
+          printf '```c\nint x;\n```\n' | pandoc -f markdown -t ansi | grep -q int
           skylighting --version
+          echo 'int x;' | skylighting -f ansi -s c | grep -q int
           source-highlight --version | head -1
+          echo 'int x;' | source-highlight -f esc -s c | grep -q int
       - name: Run test
         run: prove -lr t
 
