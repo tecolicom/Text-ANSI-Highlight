@@ -88,7 +88,9 @@ SKIP: {
             my $out = $hl->markdown($doc);
             is $text->($out), $doc, 'the text is the same';
             like $out, qr/^\e\[[\d;]+mdata\e/m, 'YAML is colored';
-            like $out, qr/\e\[[\d;]+mfor\e/, 'the template is colored';
+            # Jinja2 is not in an old highlighter
+            my $jinja = defined $hl->language('jinja');
+            like $out, qr/\e\[[\d;]+mfor\e/, 'the template is colored' if $jinja;
             like $out, qr/^---$/m, 'the separator is as it is';
             like $out, qr/^```\{\.embedz define=棒グラフ\}$/m, 'the fence is as it is';
             like $out, qr/^\e\[[\d;]+mmy\e/m, 'the other code is colored';
@@ -100,7 +102,8 @@ SKIP: {
                 [ 'embedz' => "---\ndata: a.csv\n---\n{{ n }}\n" ],
                 [ '{.c .numberLines}' => "int x; /* c */\n" ],
                 [ '{.embedz as=t}' => "a,b\n" ]);
-            like $out[0], qr/\e\[[\d;]+mfor\e/, 'highlight: the template';
+            like $out[0], qr/\e\[[\d;]+mfor\e/, 'highlight: the template' if $jinja;
+            is $out[0], undef, 'highlight: a template of a language not known' if !$jinja;
             like $out[1], qr/^---\n\e\[[\d;]+mdata\e/, 'highlight: YAML';
             like $out[2], qr/\e\[[\d;]+mint\e/, 'highlight: a class in braces';
             is $out[3], undef, 'highlight: nothing to color';
