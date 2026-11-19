@@ -221,19 +221,21 @@ sub _run {
 }
 
 # Take the colors of the background out of the SGR sequences of a
-# text: 40-47, 100-107, and 48 with its color (48;5;N, 48;2;R;G;B).
+# text: 40-47, 100-107, and 48 with its color (48;5;N, 48;2;R;G;B,
+# and with colons 48:5:N, 48:2::R:G:B).
 # A sequence which has nothing left is gone.
 sub _no_background {
-    $_[0] =~ s{\e\[([\d;]*)m}{
+    $_[0] =~ s{\e\[([\d;:]*)m}{
         my @in = split /;/, $1, -1;
         my @out;
         while (@in) {
             my $p = shift @in;
-            # the color after 38 and 48: 5;N or 2;R;G;B
+            # the color after 38 and 48: 5;N or 2;R;G;B.  With colons
+            # it is in the parameter itself, as 48:2::R:G:B
             my $n = $p =~ /\A[34]8\z/
                 ? { 5 => 2, 2 => 4 }->{ $in[0] // '' } // 0 : 0;
             my @color = splice @in, 0, $n;
-            next if $p =~ /\A(?:4[0-8]|10[0-7])\z/;
+            next if $p =~ /\A(?:4[0-8]|10[0-7])(?::|\z)/;
             push @out, $p, @color;
         }
         @out || $1 eq '' ? "\e[" . join(';', @out) . 'm' : '';
@@ -268,10 +270,10 @@ sub _accept {
     $color = $1 . $color if $text =~ /\A(\n+)(?=.)/s;
     $color .= $1 if $text =~ /(\n+)\z/;
     # only the colors are taken
-    return undef unless $color =~ s/\e\[[\d;]*m//gr eq $text;
-    return undef unless $color =~ /\e\[[\d;]*[1-9][\d;]*m/;
+    return undef unless $color =~ s/\e\[[\d;:]*m//gr eq $text;
+    return undef unless $color =~ /\e\[[\d;:]*[1-9][\d;:]*m/;
     if ($crlf) {
-        $color =~ s/((?:\e\[[\d;]*m)*)\n/$1\r\n/g;
+        $color =~ s/((?:\e\[[\d;:]*m)*)\n/$1\r\n/g;
     }
     utf8::decode($color) if $chars;
     $color;
@@ -371,7 +373,7 @@ sub _markdown_plan {
         }
         $colored or return undef;
         my $result = join '', @piece;
-        $result =~ s/((?:\e\[[\d;]*m)*)\n/$1\r\n/g if $crlf;
+        $result =~ s/((?:\e\[[\d;:]*m)*)\n/$1\r\n/g if $crlf;
         $result;
     };
 }
