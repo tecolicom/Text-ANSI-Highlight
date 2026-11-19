@@ -85,12 +85,15 @@ SKIP: {
                 . "```{.embedz define=棒グラフ}\n{# c #}\n{% for r in data %}\n- {{ r.name }}\n{% endfor %}\n```\n\n"
                 . "```embedz\n---\ndata: a.csv\nwith:\n  n: 1\n---\n{{ n }}\n```\n\n"
                 . "```perl\nmy \$x; # c\n```\n";
+            # whether a template is colored, and which words of it,
+            # depends on the highlighter and its version: ask it
+            my $jinja = defined(($hl->highlight([ jinja => "{% for r in data %}\n" ]))[0]);
+            $calls = 0;
             my $out = $hl->markdown($doc);
             is $text->($out), $doc, 'the text is the same';
             like $out, qr/^\e\[[\d;]+mdata\e/m, 'YAML is colored';
-            # which words of a template are colored depends on the
-            # version of the highlighter
-            like $out, qr/^(?:\e\[[\d;]*m)+\{% for|\e\[[\d;]+mfor\e/m, 'the template is colored';
+            like $out, qr/^(?:\e\[[\d;]*m)+\{% for|\e\[[\d;]+mfor\e/m, 'the template is colored'
+                if $jinja;
             like $out, qr/^---$/m, 'the separator is as it is';
             like $out, qr/^```\{\.embedz define=棒グラフ\}$/m, 'the fence is as it is';
             like $out, qr/^\e\[[\d;]+mmy\e/m, 'the other code is colored';
@@ -102,8 +105,12 @@ SKIP: {
                 [ 'embedz' => "---\ndata: a.csv\n---\n{{ n }}\n" ],
                 [ '{.c .numberLines}' => "int x; /* c */\n" ],
                 [ '{.embedz as=t}' => "a,b\n" ]);
-            like $out[0], qr/\e\[[\d;]*[1-9]/, 'highlight: the template';
-            is $text->($out[0]), "{% for r in data %}\n{% endfor %}\n", 'highlight: its text is the same';
+            if ($jinja) {
+                like $out[0], qr/\e\[[\d;]*[1-9]/, 'highlight: the template';
+                is $text->($out[0]), "{% for r in data %}\n{% endfor %}\n", 'highlight: its text is the same';
+            } else {
+                is $out[0], undef, 'highlight: a template which the highlighter does not color';
+            }
             like $out[1], qr/^---\n\e\[[\d;]+mdata\e/, 'highlight: YAML';
             like $out[2], qr/\e\[[\d;]+mint\e/, 'highlight: a class in braces';
             is $out[3], undef, 'highlight: nothing to color';
