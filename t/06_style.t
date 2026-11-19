@@ -142,4 +142,29 @@ SKIP: {
     is `$cmd -w $name -s $other{$name} $c`, $want, 'ansihighlight -s';
 }
 
+# background => 0 takes the colors of the background out of what the
+# highlighter gives: a style for a dark screen of pandoc has them
+subtest 'background' => sub {
+    my $strip = \&Text::ANSI::Highlight::_no_background;
+    is $strip->("\e[37;40;22mx\e[0m"), "\e[37;22mx\e[0m", '40';
+    is $strip->("\e[107;1mx\e[49m"), "\e[1mx\e[49m", '107, and 49 is left';
+    is $strip->("\e[48;5;234;31mx"), "\e[31mx", '48;5;N';
+    is $strip->("\e[1;48;2;10;20;30;31mx"), "\e[1;31mx", '48;2;R;G;B';
+    is $strip->("\e[38;5;45;44mx"), "\e[38;5;45mx", '38;5;N stays, with 45 in it';
+    is $strip->("\e[38;2;40;41;42;43mx"), "\e[38;2;40;41;42mx", '38;2;R;G;B stays';
+    is $strip->("\e[41mx\e[mx"), "x\e[mx", 'a sequence of the background alone is gone';
+
+    ok !eval { Text::ANSI::Highlight->new(background => 2, nosuch => 1); 1 }, 'still dies for another';
+    SKIP: {
+        skip 'pandoc is not installed', 4 unless grep { $_ eq 'pandoc' } @highlighter;
+        my $with = (Text::ANSI::Highlight->new('pandoc:breezedark')->highlight([ c => $code ]))[0];
+        my $without = (Text::ANSI::Highlight->new('pandoc:breezedark', background => 0)
+                       ->highlight([ c => $code ]))[0];
+        like $with, qr/\e\[[\d;]*\b40\b/, 'breezedark has a background';
+        unlike $without, qr/\e\[(?:[\d;]*;)?(?:4[0-7]|10[0-7])[;m]/, 'not with background => 0';
+        like $without, qr/\e\[[\d;]*3\d/, 'the colors of the text are there';
+        is $text->($without), $code, 'the text is the same';
+    }
+};
+
 done_testing;

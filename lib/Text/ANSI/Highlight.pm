@@ -86,6 +86,8 @@ sub new {
     my($name, $style) = split /:/, delete $arg{with} // '', 2;
     $style = delete $arg{style} if exists $arg{style};
     undef $style if defined $style and $style eq '';
+    # background => 0: the colors of the background are taken out
+    my $background = exists $arg{background} ? delete $arg{background} : 1;
     $name = $HIGHLIGHTER if not defined $name or $name eq '';
     $name = $SHORT{$name} // $name;
     croak join(', ', sort keys %arg) . ': unknown parameter' if %arg;
@@ -96,7 +98,8 @@ sub new {
         croak $@ unless $@ =~ /^Can't locate \Q$file\E /;
         croak "$name: no such highlighter";
     }
-    bless { name => $name, module => $module, style => $style }, $class;
+    bless { name => $name, module => $module, style => $style,
+            background => $background }, $class;
 }
 
 sub name  { $_[0]{name} }
@@ -211,9 +214,30 @@ sub _run {
     my @out = $obj->_call(highlight => @pair);
     for my $i (0 .. $#todo) {
         my $color = _accept($out[$i], $pair[$i][1], $crlf[$i], $chars) // next;
+        $color = _no_background($color) unless $obj->{background};
         ${ $todo[$i]{slot} } = $color;
         $todo[$i]{ok} = 1;
     }
+}
+
+# Take the colors of the background out of the SGR sequences of a
+# text: 40-47, 100-107, and 48 with its color (48;5;N, 48;2;R;G;B).
+# A sequence which has nothing left is gone.
+sub _no_background {
+    $_[0] =~ s{\e\[([\d;]*)m}{
+        my @in = split /;/, $1, -1;
+        my @out;
+        while (@in) {
+            my $p = shift @in;
+            # the color after 38 and 48: 5;N or 2;R;G;B
+            my $n = $p =~ /\A[34]8\z/
+                ? { 5 => 2, 2 => 4 }->{ $in[0] // '' } // 0 : 0;
+            my @color = splice @in, 0, $n;
+            next if $p =~ /\A(?:4[0-8]|10[0-7])\z/;
+            push @out, $p, @color;
+        }
+        @out || $1 eq '' ? "\e[" . join(';', @out) . 'm' : '';
+    }ger;
 }
 
 # Make a text ready for the highlighter: bytes, and LF for CR LF.
@@ -625,7 +649,7 @@ C<@INC>.
 
 =item B<new>(I<name>)
 
-=item B<new>(B<with> => I<name>, B<style> => I<style>)
+=item B<new>(B<with> => I<name>, B<style> => I<style>, B<background> => 0)
 
 Make an object which colors with the highlighter of the name, or of
 the short name (C<gnu>, C<sky>).  The
@@ -642,6 +666,10 @@ option:
 
     Text::ANSI::Highlight->new('pandoc', style => 'haddock');
     Text::ANSI::Highlight->new('pandoc:haddock');
+
+C<< background => 0 >> takes the colors of the background out of what
+the highlighter gives, for a program which has the background of its
+own: a style for a dark screen, as C<breezedark> of pandoc, has one.
 
 =item B<highlighter>(I<name>)
 

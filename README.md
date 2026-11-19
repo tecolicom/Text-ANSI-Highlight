@@ -129,7 +129,7 @@ module for a block of your own is found when it is in a directory of
 # METHODS
 
 - **new**(_name_)
-- **new**(**with** => _name_, **style** => _style_)
+- **new**(**with** => _name_, **style** => _style_, **background** => 0)
 
     Make an object which colors with the highlighter of the name, or of
     the short name (`gnu`, `sky`).  The
@@ -146,6 +146,10 @@ module for a block of your own is found when it is in a directory of
 
         Text::ANSI::Highlight->new('pandoc', style => 'haddock');
         Text::ANSI::Highlight->new('pandoc:haddock');
+
+    `background => 0` takes the colors of the background out of what
+    the highlighter gives, for a program which has the background of its
+    own: a style for a dark screen, as `breezedark` of pandoc, has one.
 
 - **highlighter**(_name_)
 
