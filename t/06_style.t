@@ -147,7 +147,10 @@ SKIP: {
 subtest 'background' => sub {
     my $strip = \&Text::ANSI::Highlight::_no_background;
     is $strip->("\e[37;40;22mx\e[0m"), "\e[37;22mx\e[0m", '40';
-    is $strip->("\e[107;1mx\e[49m"), "\e[1mx\e[49m", '107, and 49 is left';
+    is $strip->("\e[107;1mx"), "\e[1mx", '107';
+    # 49 puts the background back to the default one: the background
+    # of the program which shows the text would end there
+    is $strip->("\e[31;49mx\e[49my\e[39;49mz"), "\e[31mxy\e[39mz", '49';
     is $strip->("\e[48;5;234;31mx"), "\e[31mx", '48;5;N';
     is $strip->("\e[1;48;2;10;20;30;31mx"), "\e[1;31mx", '48;2;R;G;B';
     is $strip->("\e[38;5;45;44mx"), "\e[38;5;45mx", '38;5;N stays, with 45 in it';

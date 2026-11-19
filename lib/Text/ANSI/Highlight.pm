@@ -221,8 +221,9 @@ sub _run {
 }
 
 # Take the colors of the background out of the SGR sequences of a
-# text: 40-47, 100-107, and 48 with its color (48;5;N, 48;2;R;G;B,
-# and with colons 48:5:N, 48:2::R:G:B).
+# text: 40-47, 100-107, 48 with its color (48;5;N, 48;2;R;G;B, and
+# with colons 48:5:N, 48:2::R:G:B), and 49, which puts the default
+# one back.
 # A sequence which has nothing left is gone.
 sub _no_background {
     $_[0] =~ s{\e\[([\d;:]*)m}{
@@ -235,7 +236,7 @@ sub _no_background {
             my $n = $p =~ /\A[34]8\z/
                 ? { 5 => 2, 2 => 4 }->{ $in[0] // '' } // 0 : 0;
             my @color = splice @in, 0, $n;
-            next if $p =~ /\A(?:4[0-8]|10[0-7])(?::|\z)/;
+            next if $p =~ /\A(?:4[0-9]|10[0-7])(?::|\z)/;
             push @out, $p, @color;
         }
         @out || $1 eq '' ? "\e[" . join(';', @out) . 'm' : '';
@@ -669,8 +670,8 @@ option:
     Text::ANSI::Highlight->new('pandoc', style => 'haddock');
     Text::ANSI::Highlight->new('pandoc:haddock');
 
-C<< background => 0 >> takes the colors of the background out of what
-the highlighter gives, for a program which has the background of its
+C<< background => 0 >> takes the colors of the background, and what
+puts the default one back (C<49>), out of what the highlighter gives, for a program which has the background of its
 own: a style for a dark screen, as C<breezedark> of pandoc, has one.
 
 =item B<highlighter>(I<name>)
