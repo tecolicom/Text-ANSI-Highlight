@@ -23,7 +23,7 @@ Text::ANSI::Highlight - syntax highlight for the terminal, by a highlighter of y
 
 # VERSION
 
-Version 0.03
+Version 0.04
 
 # DESCRIPTION
 
